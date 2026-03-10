@@ -13,7 +13,7 @@ function Layout({ children }) {
       </div>
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 px-6">
         <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-          © 2026 CENA Engenharia &nbsp;|&nbsp; Sistema de Planejamento de Rotas &nbsp;|&nbsp; Criado por Marcelo.S
+          © 2026 CENA Engenharia &nbsp;|&nbsp; Sistema de Ferramentas &nbsp;|&nbsp; Criado por Marcelo.S
         </p>
       </footer>
     </div>
