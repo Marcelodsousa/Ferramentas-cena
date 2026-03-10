@@ -20,6 +20,11 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
         },
+        cena: {
+          DEFAULT: '#1D3D47',
+          light:   '#2A5263',
+          dark:    '#132830',
+        },
       },
     },
   },
