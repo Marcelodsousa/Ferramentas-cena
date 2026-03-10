@@ -1,15 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Upload, FileSpreadsheet, FileText, RefreshCw,
-  CheckCircle, AlertTriangle, Database, Trash2
+  CheckCircle, AlertTriangle, Trash2
 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { readExcelFile, exportToExcel } from '../../services/excelService'
 import { exportToPDF } from '../../services/pdfService'
-import {
-  importarConversor, importarSiglaMun, importarMB52,
-  buscarTabelasReferencia, buscarStatusImportacoes,
-} from '../../services/aderenciaService'
+import { buscarTabelasReferencia } from '../../services/aderenciaService'
 import { parsearCN52N, processarAderencia, calcularTotais } from '../../utils/aderenciaCalc'
 import Card from '../../components/UI/Card'
 import Button from '../../components/UI/Button'
@@ -34,52 +31,16 @@ const StatusBadge = ({ status }) => {
   return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${cfg.cls}`}>{cfg.label}</span>
 }
 
-// ── Config das bases de referência (salvas no banco) ─────────────────────────
-const BASES_REF = [
-  {
-    key: 'CONVERSOR',
-    label: 'CONVERSOR',
-    subtitle: 'Descrição e classe dos materiais',
-    color: 'green',
-    campos: 'Material · Descrição · Classe · Fator de Conversão',
-  },
-  {
-    key: 'SIGLA_MUN',
-    label: 'SIGLA_MUN',
-    subtitle: 'Centro → Município / Sigla / Polo',
-    color: 'purple',
-    campos: 'Centro · Município · Sigla · Polo',
-  },
-  {
-    key: 'MB52',
-    label: 'MB52',
-    subtitle: 'Estoque disponível por material',
-    color: 'orange',
-    campos: 'Material · Depósito · Classe · Tipo Mat · Estoque Disponível',
-  },
-]
-
-const COLOR_MAP = {
-  green:  { badge: 'bg-green-100  text-green-700  dark:bg-green-900/30  dark:text-green-300',  border: 'border-green-300  dark:border-green-700' },
-  purple: { badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
-  orange: { badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AderenciaMaterial() {
   // ── Tabelas de referência (do banco) ───────────────────────────────────────
-  const [importStatus, setImportStatus] = useState({})
-  const [refMaps, setRefMaps]           = useState(null)   // { conversorMap, siglaMunMap, mb52Map }
-  const [loadingRef, setLoadingRef]     = useState(false)
+  const [refMaps, setRefMaps]       = useState(null)   // { conversorMap, siglaMunMap, mb52Map }
+  const [loadingRef, setLoadingRef] = useState(false)
 
   // ── CN52N (apenas em memória) ──────────────────────────────────────────────
   const [cn52nInfo, setCn52nInfo]       = useState(null)   // { nome, total, rows: [] }
   const [loadingCN52N, setLoadingCN52N] = useState(false)
   const [erroCN52N, setErroCN52N]       = useState('')
-
-  // ── Upload de referências ──────────────────────────────────────────────────
-  const [uploading, setUploading]       = useState({})
-  const [uploadErrors, setUploadErrors] = useState({})
 
   // ── Export ────────────────────────────────────────────────────────────────
   const [gerandoPDF,   setGerandoPDF]   = useState(false)
@@ -95,16 +56,12 @@ export default function AderenciaMaterial() {
   // ── Refs para input file ───────────────────────────────────────────────────
   const cn52nRef = useRef(null)
 
-  // ── Carregar status e tabelas de referência ao montar ─────────────────────
+  // ── Carregar tabelas de referência ao montar ──────────────────────────────
   useEffect(() => {
     const inicializar = async () => {
       setLoadingRef(true)
       try {
-        const [status, maps] = await Promise.all([
-          buscarStatusImportacoes(),
-          buscarTabelasReferencia(),
-        ])
-        setImportStatus(status)
+        const maps = await buscarTabelasReferencia()
         setRefMaps(maps)
       } catch (e) {
         console.error(e)
@@ -195,28 +152,6 @@ export default function AderenciaMaterial() {
     if (cn52nRef.current) cn52nRef.current.value = ''
   }
 
-  // ── Upload tabelas de referência (salvas no banco) ─────────────────────────
-  const handleRefUpload = useCallback(async (baseKey, file) => {
-    if (!file) return
-    setUploading(p => ({ ...p, [baseKey]: true }))
-    setUploadErrors(p => ({ ...p, [baseKey]: '' }))
-    try {
-      const data = await readExcelFile(file)
-      const fns  = { CONVERSOR: importarConversor, SIGLA_MUN: importarSiglaMun, MB52: importarMB52 }
-      await fns[baseKey](data, file.name)
-      // Recarregar status e mapas de referência
-      const [status, maps] = await Promise.all([
-        buscarStatusImportacoes(),
-        buscarTabelasReferencia(),
-      ])
-      setImportStatus(status)
-      setRefMaps(maps)
-    } catch (e) {
-      setUploadErrors(p => ({ ...p, [baseKey]: e.message }))
-    } finally {
-      setUploading(p => ({ ...p, [baseKey]: false }))
-    }
-  }, [])
 
   const handleLimparFiltros = () => setFiltros(FILTROS_INICIAL)
 
@@ -446,65 +381,6 @@ export default function AderenciaMaterial() {
         )}
       </Card>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SEÇÃO 2 — Tabelas de referência (salvas no banco)
-      ══════════════════════════════════════════════════════════════════════ */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Database className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-            Tabelas de Referência — salvas no banco
-          </span>
-        </div>
-        {loadingRef && <Loading message="Carregando referências..." />}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {BASES_REF.map(base => {
-            const info   = importStatus[base.key]
-            const colors = COLOR_MAP[base.color]
-            const carregando = uploading[base.key]
-            const erro   = uploadErrors[base.key]
-
-            return (
-              <Card key={base.key} className={`border ${colors.border}`}>
-                <div className="flex items-start justify-between mb-2">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${colors.badge}`}>
-                    {base.label}
-                  </span>
-                  {info && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{base.subtitle}</p>
-
-                {info && (
-                  <div className="text-xs text-gray-500 mb-2">
-                    <span className="font-medium">{info.nome_arquivo}</span>
-                    <br />
-                    {info.total_registros?.toLocaleString('pt-BR')} registros
-                    · {new Date(info.created_at).toLocaleString('pt-BR')}
-                  </div>
-                )}
-
-                <p className="text-xs text-gray-400 mb-3">{base.campos}</p>
-
-                {erro && <Alert type="error" className="mb-2 text-xs">{erro}</Alert>}
-
-                {carregando ? (
-                  <Loading message={`Importando ${base.label}...`} />
-                ) : (
-                  <label className="cursor-pointer block">
-                    <span className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed ${colors.border} text-sm hover:opacity-80 transition-opacity`}>
-                      <Upload className="w-4 h-4" />
-                      {info ? 'Reimportar' : `Importar ${base.label}`}
-                    </span>
-                    <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
-                      onChange={e => handleRefUpload(base.key, e.target.files[0])} />
-                  </label>
-                )}
-              </Card>
-            )
-          })}
-        </div>
-      </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
           SEÇÃO 3 — Dashboard de totais
