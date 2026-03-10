@@ -8,14 +8,8 @@ function Header() {
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="px-6 py-3 flex items-center justify-between">
 
-        {/* Logo + Nome */}
+        {/* Nome */}
         <div className="flex items-center gap-3">
-          <img
-            src="/logo-cena.png"
-            alt="CENA Engenharia"
-            className="h-10 w-auto object-contain"
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
-          />
           <div className="flex flex-col leading-tight">
             <span
               className="text-xl font-bold tracking-widest uppercase dark:text-white"
